@@ -4,17 +4,24 @@ fs = require 'fs'
 exports.countryIpCounter = (countryCode, cb) ->
   return cb() unless countryCode
 
-  fs.readFile "#{__dirname}/../data/geo.txt", 'utf8', (err, data) ->
-    if err then return cb err
-
-    data = data.toString().split '\n'
-    counter = 0
-
+  counter = 0
+  prefix = ''
+  inputFile = fs.createReadStream "#{__dirname}/../data/geo.txt", { encoding: 'utf8' }
+  inputFile.on 'data', (chunk) ->
+    if prefix.length > 0
+      chunk = prefix + chunk
+      prefix = ''
+    data = chunk.toString().split '\n'
+    last = data.pop()
+    # check if last is a line
+    if chunk.endsWith '\n'
+      data.push last
+    else
+      prefix = last
     for line in data when line
-      line = line.split '\t'
-      # GEO_FIELD_MIN, GEO_FIELD_MAX, GEO_FIELD_COUNTRY
-      # line[0],       line[1],       line[3]
+      blocks = line.split '\t'
+      if blocks[3] == countryCode
+        counter += +blocks[1] - +blocks[0]
 
-      if line[3] == countryCode then counter += +line[1] - +line[0]
-
+  inputFile.on 'end', () ->
     cb null, counter
